@@ -26,5 +26,22 @@ check "Политика incoming: deny" "deny" "$(sudo ufw status verbose | grep
 echo "[3] Учётные записи"
 awk -F: '$3>=1000 && $3<65534 {printf "  %s (uid=%s)\n", $1, $3}' /etc/passwd
 
+echo "[4] Веб-сервер"
+check "Служба nginx активна" "active" "$(systemctl is-active nginx)"
+check "Конфигурация nginx синтаксически корректна" "nginx: the configuration file /etc/nginx/nginx.conf syntax is ok" "$(sudo nginx -t 2>&1 | head -n 1)"
+
+# Проверка сертификата (перенаправляем вывод в /dev/null, оставляем только код возврата)
+check "Сертификат истекает не ранее чем через 30 дней" "0" "$(openssl x509 -checkend 2592000 -noout -in /etc/ssl/certs/devops.crt >/dev/null 2>&1; echo $?)"
+
+# Проверка прав (разбита на простые строки, чтобы избежать ошибок синтаксиса)
+WW_COUNT=$(find /var/www/devops-site -perm -o+w 2>/dev/null | wc -l)
+KEY_PERM=$(sudo stat -c '%a' /etc/ssl/private/devops.key 2>/dev/null)
+if [[ "$WW_COUNT" -eq 0 && "$KEY_PERM" == "600" ]]; then
+    PERM_CHECK="0"
+else
+    PERM_CHECK="1"
+fi
+check "Нет world-writable файлов и ключ имеет права 600" "0" "$PERM_CHECK"
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
