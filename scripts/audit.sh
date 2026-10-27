@@ -42,9 +42,18 @@ else
     PERM_CHECK="1"
 fi
 check "Нет world-writable файлов и ключ имеет права 600" "0" "$PERM_CHECK"
+echo "[5] Контейнеризация"
+check "Служба docker активна" "active" "$(systemctl is-active docker)"
 
-echo "Пройдено: $PASS, не пройдено: $FAIL"
-[[ $FAIL -eq 0 ]] && exit 0 || exit 1
+APP_DB_CONTAINER=$(docker inspect -f '{{.State.Health.Status}}' app-db-1 2>/dev/null || echo 'unknown')
+check "Контейнер СУБД в состоянии healthy" "healthy" "$APP_DB_CONTAINER"
+
+PORTS_CHECK=$(sudo ss -tln | awk '$4 !~ /127.0.0.1:(5000|5432)$/ && $4 ~ /:(5000|5432)$/ {print "fail"}')
+if [ -z "$PORTS_CHECK" ]; then PORTS_OK="0"; else PORTS_OK="1"; fi
+check "Порты 5000 и 5432 не прослушиваются вне 127.0.0.1" "0" "$PORTS_OK"
+
+check "Права файла ~/app/.env равны 600" "600" "$(stat -c '%a' ~/app/.env 2>/dev/null || echo 'none')"
+
 echo "[6] Контрольная работа № 2"
 REDIS_CONTAINER=$(docker compose --project-directory ~/kr2 ps -q redis)
 check "Контейнер redis healthy" "healthy" "$(docker inspect -f '{{.State.Health.Status}}' $REDIS_CONTAINER 2>/dev/null || echo 'unknown')"
@@ -56,3 +65,5 @@ check "Сертификат kr2.crt действителен > 30 дней" "0" 
 
 if [ -L /etc/nginx/sites-enabled/kr2 ]; then LINK_OK="true"; else LINK_OK="false"; fi
 check "Ресурс kr2 активирован в nginx" "true" "$LINK_OK"
+echo "Пройдено: $PASS, не пройдено: $FAIL"
+[[ $FAIL -eq 0 ]] && exit 0 || exit 1
