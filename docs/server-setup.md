@@ -84,3 +84,42 @@
 - Публикуемые порты: `127.0.0.1:5000` (только локальный интерфейс). Порт СУБД 5432 не публикуется.
 - Обратный прокси: блок `location /app/` в `/etc/nginx/sites-available/devops-site` направляет запросы на `http://127.0.0.1:5000/` с пробросом заголовков Host, X-Real-IP, X-Forwarded-For и X-Forwarded-Proto.
 
+
+## 10. Ansible
+
+**Расположение проекта:** `~/devops-course-2026/ansible` в WSL.
+
+**Узлы:**
+- Управляющий: WSL (Ubuntu) на хостовой Windows 11 системе
+- Управляемый: VM `devops-vm` на VirtualBox, сеть Host-only
+
+**Inventory:**
+- `inventory/bootstrap.ini` — первичный запуск от пользователя `student` с `--ask-pass --ask-become-pass`
+- `inventory/prod.ini` — последующие запуски от `devops` по ключу `~/.ssh/devops_vm`
+
+**Роли:**
+- `base` — проверка ОС, базовые пакеты, Docker Engine из официального репозитория
+- `ssh` — пользователь `devops`, SSH-ключ, sudo NOPASSWD, hardening SSH, UFW
+- `nginx` — reverse proxy на контейнер приложения
+- `app` — загрузка образа GHCR, запуск контейнера, health-check
+
+**GHCR-образ:**
+- Адрес: `ghcr.io/coldw1nd/devops-ci-app`
+- Текущий SHA: `5ede5ebefa66279722eaa1d91ba764b886d5db96` (обновляется при смене версии)
+- Порт контейнера: 5000 (привязан к 127.0.0.1)
+- Health endpoint: `/health`
+
+**Команды:**
+```bash
+# Первичная настройка
+ansible-playbook -i inventory/bootstrap.ini site.yml --ask-pass --ask-become-pass
+
+# Повторный запуск (идемпотентный)
+ansible-playbook site.yml
+
+# Read-only аудит
+ansible-playbook verify.yml
+```
+
+Пароли и закрытый ключ в документ не включены.
+

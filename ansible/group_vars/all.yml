@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/coldw1nd/devops-ci-app"
+app_tag: "5ede5ebefa66279722eaa1d91ba764b886d5db96"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000
